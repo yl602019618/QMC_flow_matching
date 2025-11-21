@@ -244,11 +244,19 @@ def _fit_loglog_slope(sample_sizes, errors, tail_k=None):
 def plot_mc_vs_qmc(mc_results, qmc_results, snis_results_mc=None, snis_results_qmc=None,
                    save_path="results_logi/banana_mc_qmc_snis.png", tail_k=None):
     sample_sizes = mc_results['sample_sizes']
-    plt.figure(figsize=(10, 6))
-
+    plt.figure(figsize=(8, 6))
+    plt.rcParams.update({
+        'font.size': 14,
+        'axes.titlesize': 14,
+        'axes.labelsize': 14,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'legend.fontsize': 14,
+        'figure.titlesize': 14,
+    })
     # MC
     mc_err = mc_results['mse_errors']
-    plt.loglog(sample_sizes, mc_err, 'r-o', label='MC (transport via flow)')
+    plt.loglog(sample_sizes, mc_err, 'r-o', label='FM-MC')
     plt.loglog(sample_sizes, mc_err[0] * (sample_sizes[0] / np.array(sample_sizes))**0.5,
                'r--', label='MC O(N^-0.5)')
     mc_slope, _ = _fit_loglog_slope(sample_sizes, mc_err, tail_k=tail_k)
@@ -257,7 +265,7 @@ def plot_mc_vs_qmc(mc_results, qmc_results, snis_results_mc=None, snis_results_q
 
     # QMC
     qmc_err = qmc_results['mse_errors']
-    plt.loglog(sample_sizes, qmc_err, 'b-s', label='QMC (transport via flow)')
+    plt.loglog(sample_sizes, qmc_err, 'b-s', label='FM-QMC')
     plt.loglog(sample_sizes, qmc_err[0] * (sample_sizes[0] / np.array(sample_sizes)),
                'b--', label='QMC O(N^-1)')
     qmc_slope, _ = _fit_loglog_slope(sample_sizes, qmc_err, tail_k=tail_k)
@@ -267,25 +275,24 @@ def plot_mc_vs_qmc(mc_results, qmc_results, snis_results_mc=None, snis_results_q
     # SNIS（可选）
     if snis_results_mc is not None and snis_results_mc.get('mse_errors'):
         snis_mc_err = snis_results_mc['mse_errors']
-        plt.loglog(sample_sizes, snis_mc_err, 'g-^', label='SNIS (MC, q=flow)')
+        plt.loglog(sample_sizes, snis_mc_err, 'g-^', label='FM-ISMC')
         snis_mc_slope, _ = _fit_loglog_slope(sample_sizes, snis_mc_err, tail_k=tail_k)
         plt.text(sample_sizes[-1]*1.05, snis_mc_err[-1], f"slope≈{snis_mc_slope:.2f}",
                  color='g', ha='left', va='center', fontsize=10)
 
     if snis_results_qmc is not None and snis_results_qmc.get('mse_errors'):
         snis_qmc_err = snis_results_qmc['mse_errors']
-        plt.loglog(sample_sizes, snis_qmc_err, 'k-^', label='SNIS (QMC, q=flow)')
+        plt.loglog(sample_sizes, snis_qmc_err, 'k-^', label='FM-ISQMC')
         snis_qmc_slope, _ = _fit_loglog_slope(sample_sizes, snis_qmc_err, tail_k=tail_k)
         plt.text(sample_sizes[-1]*1.05, snis_qmc_err[-1], f"slope≈{snis_qmc_slope:.2f}",
                  color='k', ha='left', va='center', fontsize=10)
 
     plt.xlabel("Sample Size")
-    plt.ylabel("RMSE (Euclidean) of mean")
-    plt.title("Banana mean: MC vs QMC vs SNIS")
+    plt.ylabel("RMSE")
     plt.legend()
     plt.grid(True, which="both", ls="--", alpha=0.5)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    plt.savefig(save_path, dpi=150)
+    plt.savefig(save_path, dpi=300)
     plt.close()
 
     print(f"[Slope] MC: {mc_slope:.3f}, QMC: {qmc_slope:.3f}" +
@@ -359,7 +366,7 @@ def main():
 
     # 画图
     plot_mc_vs_qmc(mc_res, qmc_res, snis_results_mc=snis_res_mc,
-                   snis_results_qmc=snis_res_qmc, save_path="results_logi/banana_mc_qmc_snis.png")
+                   snis_results_qmc=snis_res_qmc, save_path="results_logi/banana_mc_qmc_snis.pdf")
     plot_snis_ess(snis_res_mc, save_path="results_logi/banana_snis_ess_mc.png")
     plot_snis_ess(snis_res_qmc, save_path="results_logi/banana_snis_ess_qmc.png")
 
