@@ -261,8 +261,10 @@ def _fit_loglog_slope(sample_sizes, errors, tail_k=None):
 # ----------------------------
 
 def plot_mc_vs_qmc(mc_results, qmc_results, snis_results_mc=None, snis_results_qmc=None,
-                   save_path="results30d/mc_vs_qmc_comparison.png", tail_k=None):
+                   save_path="results_logi/banana_mc_qmc_snis.png", tail_k=None):
     sample_sizes = mc_results['sample_sizes']
+    N_arr = np.array(sample_sizes, dtype=float)
+
     plt.figure(figsize=(8, 6))
     plt.rcParams.update({
         'font.size': 14,
@@ -273,51 +275,74 @@ def plot_mc_vs_qmc(mc_results, qmc_results, snis_results_mc=None, snis_results_q
         'legend.fontsize': 14,
         'figure.titlesize': 14,
     })
-    # MC
+
+    # --------- FM-MC ----------
     mc_err = mc_results['mse_errors']
     plt.loglog(sample_sizes, mc_err, 'r-o', label='FM-MC')
-    plt.loglog(sample_sizes, mc_err[0] * (sample_sizes[0] / np.array(sample_sizes))**0.5,
-               'r--', label='MC O(N^-0.5)')
     mc_slope, _ = _fit_loglog_slope(sample_sizes, mc_err, tail_k=tail_k)
-    plt.text(sample_sizes[-1]*1.05, mc_err[-1],
-             f"slope≈{mc_slope:.2f}", color='r', ha='left', va='center', fontsize=10)
 
-    # QMC
+    # --------- FM-QMC ----------
     qmc_err = qmc_results['mse_errors']
     plt.loglog(sample_sizes, qmc_err, 'b-s', label='FM-QMC')
-    plt.loglog(sample_sizes, qmc_err[0] * (sample_sizes[0] / np.array(sample_sizes)),
-               'b--', label='QMC O(N^-1)')
     qmc_slope, _ = _fit_loglog_slope(sample_sizes, qmc_err, tail_k=tail_k)
-    plt.text(sample_sizes[-1]*1.05, qmc_err[-1],
-             f"slope≈{qmc_slope:.2f}", color='b', ha='left', va='center', fontsize=10)
 
-    # SNIS（可选）
-    if snis_results_mc is not None and 'mse_errors' in snis_results_mc and snis_results_mc['mse_errors']:
+    # 预先定义，避免没有 SNIS 时变量未定义
+    snis_mc_slope = np.nan
+    snis_qmc_slope = np.nan
+
+    # --------- FM-ISMC ----------
+    if snis_results_mc is not None and snis_results_mc.get('mse_errors'):
         snis_mc_err = snis_results_mc['mse_errors']
         plt.loglog(sample_sizes, snis_mc_err, 'g-^', label='FM-ISMC')
         snis_mc_slope, _ = _fit_loglog_slope(sample_sizes, snis_mc_err, tail_k=tail_k)
-        plt.text(sample_sizes[-1]*1.05, snis_mc_err[-1],
-                 f"slope≈{snis_mc_slope:.2f}", color='g', ha='left', va='center', fontsize=10)
 
-    if snis_results_qmc is not None and 'mse_errors' in snis_results_qmc and snis_results_qmc['mse_errors']:
+        # 参考线：斜率 -0.5，以 FM-ISMC 起点为起点
+        N0_mc = N_arr[0]
+        err0_mc = snis_mc_err[0]
+        ref_mc_minus05 = err0_mc * (N_arr / N0_mc) ** (-0.5)
+        plt.loglog(
+            sample_sizes, ref_mc_minus05,
+            '--', linewidth=1, alpha=0.7,
+            label='Slope = -0.5'
+        )
+
+    # --------- FM-ISQMC ----------
+    if snis_results_qmc is not None and snis_results_qmc.get('mse_errors'):
         snis_qmc_err = snis_results_qmc['mse_errors']
         plt.loglog(sample_sizes, snis_qmc_err, 'k-^', label='FM-ISQMC')
         snis_qmc_slope, _ = _fit_loglog_slope(sample_sizes, snis_qmc_err, tail_k=tail_k)
-        plt.text(sample_sizes[-1]*1.05, snis_qmc_err[-1],
-                 f"slope≈{snis_qmc_slope:.2f}", color='k', ha='left', va='center', fontsize=10)
+
+        # 参考线 1：斜率 -1，以 FM-ISQMC 起点为起点
+        N0_qmc = N_arr[0]
+        err0_qmc = snis_qmc_err[0]
+        ref_qmc_minus1 = err0_qmc * (N_arr / N0_qmc) ** (-1.0)
+        plt.loglog(
+            sample_sizes, ref_qmc_minus1,
+            '--', linewidth=1, alpha=0.7,
+            label='Slope = -1 '
+        )
+
+        # 参考线 2：斜率为 FM-ISQMC 拟合斜率，以 FM-ISQMC 起点为起点
+        ref_qmc_slope = err0_qmc * (N_arr / N0_qmc) ** (snis_qmc_slope)
+        plt.loglog(
+            sample_sizes, ref_qmc_slope,
+            '--', linewidth=1, alpha=0.7,
+            label=f'Slope = {snis_qmc_slope:.2f} '
+        )
 
     plt.xlabel("Sample Size")
     plt.ylabel("RMSE")
-    #plt.title("MC vs QMC vs SNIS (First Moment, 30D)")
     plt.legend()
     plt.grid(True, which="both", ls="--", alpha=0.5)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.close()
 
-    print(f"[Slope] MC: {mc_slope:.3f}, QMC: {qmc_slope:.3f}" +
-          (f", SNIS-MC: {snis_mc_slope:.3f}" if snis_results_mc is not None else "") +
-          (f", SNIS-QMC: {snis_qmc_slope:.3f}" if snis_results_qmc is not None else ""))
+    # 控制台打印斜率，方便对比
+    print(f"[Slope] MC: {mc_slope:.3f}, QMC: {qmc_slope:.3f}"
+          + (f", SNIS-MC: {snis_mc_slope:.3f}" if not np.isnan(snis_mc_slope) else "")
+          + (f", SNIS-QMC: {snis_qmc_slope:.3f}" if not np.isnan(snis_qmc_slope) else ""))
 
 
 def plot_snis_ess(snis_results, save_path="results30d/snis_ess.pdf"):
