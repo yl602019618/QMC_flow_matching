@@ -15,7 +15,9 @@
 | **Estimator 1** | $\pi$ 直接采 | i.i.d. MC | $\Phi^{-1}$ on scrambled Sobol' (d 维) | — |
 | **Estimator 2** | $\pi$ 直接采 | 一份 $(d{+}1)$ 维 scrambled Sobol' 的第 1 维 | 同一份 Sobol' 的后 d 维 | — |
 
-Estimator 1 (= Direct-MCbk-RQMC) 与 Estimator 2 (= M1 Joint $(d{+}1)$-Sobol') 都不依赖 flow matching。Estimator 2 的数学构造和与旧 baseline 的对比在 [`M1.md`](M1.md) 里有详细推导。
+Estimator 1 (= Direct-MCbk-RQMC) 与 Estimator 2 (= M1 Joint $(d{+}1)$-Sobol') 都不依赖 flow matching。Estimator 2 的数学构造见 [`gmm30d_final/README.md`](gmm30d_final/README.md)。
+
+> **最终大方差实验见 [`gmm30d_final/`](gmm30d_final/)**：在 30D、cov $=5I_{30}$ 的 GMM 上,自包含地给出网络训练 + 采样推理 + 两张收敛率图(complex f / 二阶矩),并在其 README 中完整写出分布、被积函数与两个 estimator 的数学定义。
 
 ## 主要结果
 
@@ -42,7 +44,6 @@ $$
 
 ```
 .
-├── M1.md                          # Estimator 2 (M1) 数学推导与对比
 ├── plot_final.py                  # 4 张最终图 + 数据缓存（已存档结果）
 ├── figures/
 │   ├── final_2d_second.pdf
@@ -79,6 +80,17 @@ $$
         ├── rqmc_advanced_30d*.{pdf,npz}
         ├── ckpt_comparison_*.pdf
         └── ckpt_summary.txt
+
+gmm30d_final/                      # 大方差 (cov=5I_30) 最终实验，自包含
+├── model.py                       # FM 网络 + 训练步 + MC/QMC 采样 + 反向 log-prob
+├── gmm.py                         # 分布 / 数据集 / 解析 log 密度 / 被积函数 + 真值
+├── estimators.py                  # Estimator 1 与 Estimator 2 (M1)
+├── train.py                       # 训练 q_theta
+├── evaluate.py                    # 6 种方法 → final_{complex,second}.pdf
+├── README.md                      # 分布 / 被积 / 两个 estimator 的数学定义
+└── results/
+    ├── fm_model.pt                # 已训练 ckpt (800k)
+    └── final_{complex,second}.pdf + *_cache.npz
 ```
 
 ## 复现实验
@@ -141,7 +153,7 @@ rmse = z["30d_complex_FM_ISQMC_rmse"]
 
 ## 主要发现
 
-1. **Estimator 2 (M1) 在所有四个 hard target 上都接近 $O(N^{-1})$**，远超 FM-ISQMC 在 30D complex $f$ 上的 $-0.60$。M1 用单条 $(d{+}1)$ 维 scrambled Sobol' 替代了原"两条独立流"baseline，消除了 cross-term 的 plateau（数学论证见 [`M1.md`](M1.md)）。
+1. **Estimator 2 (M1) 在所有四个 hard target 上都接近 $O(N^{-1})$**，远超 FM-ISQMC 在 30D complex $f$ 上的 $-0.60$。M1 用单条 $(d{+}1)$ 维 scrambled Sobol' 把"抽桶 + 抽高斯"建成一个联合低差异积分，消除了"两条独立流"baseline 的 cross-term plateau（数学定义见 [`gmm30d_final/README.md`](gmm30d_final/README.md)）。
 2. **SNIS 重要性纠偏对长训练是必要的**。30D 上不带 IS 的 FM-QMC 在 5× ckpt 下反而比 2× 差（撞到 ckpt 偏差地板），而 FM-ISQMC 单调改善。
 
 ## 许可证
