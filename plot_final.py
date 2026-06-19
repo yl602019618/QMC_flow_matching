@@ -3,16 +3,16 @@ Final paper-quality plots: 4 figures (2D / 30D x second / complex).
 
 Each figure shows:
     FM-MC, FM-QMC, FM-ISMC, FM-ISQMC                (4 FM curves, fixed legend order)
-    Estimator 1  (= Direct-MCbk-RQMC,  ~ -0.5 slope)
-    Estimator 2  (= M1 Joint (d+1)-Sobol', ~ -1 slope)
+    Direct-MCbk-RQMC  (= MC bucket + RQMC Gaussian, ~ -0.5 slope)
+    Direct-Joint-RQMC  (= M1 Joint (d+1)-Sobol', ~ -1 slope)
     Reference dashes: slope = -0.5, slope = -1, slope = FM-ISQMC fit  (3 dashes)
-No title. Legend ordered: FM-MC, FM-QMC, FM-ISMC, FM-ISQMC, Estimator 1, Estimator 2.
+No title. Legend ordered: FM-MC, FM-QMC, FM-ISMC, FM-ISQMC, Direct-MCbk-RQMC, Direct-Joint-RQMC.
 
 Data sources:
-    gmm/results_logi/all_methods_2d.npz        -> FM 4 methods + Estimator 1 (2D)
-    gmm/results_logi/rqmc_advanced_2d.npz      -> Estimator 2 (M1) (2D)
-    gmm30d/results30d/all_methods_30d_5x.npz   -> FM 4 methods + Estimator 1 (30D, 5x ckpt)
-    gmm30d/results30d/rqmc_advanced_30d.npz    -> Estimator 2 (M1) (30D)
+    gmm/results_logi/all_methods_2d.npz        -> FM 4 methods + Direct-MCbk-RQMC (2D)
+    gmm/results_logi/rqmc_advanced_2d.npz      -> Direct-Joint-RQMC (M1) (2D)
+    gmm30d/results30d/all_methods_30d_5x.npz   -> FM 4 methods + Direct-MCbk-RQMC (30D, 5x ckpt)
+    gmm30d/results30d/rqmc_advanced_30d.npz    -> Direct-Joint-RQMC (M1) (30D)
 
 Outputs:
     figures/final_2d_second.pdf
@@ -38,8 +38,8 @@ SERIES = [
     ("FM-QMC",      'b', '-',  's'),
     ("FM-ISMC",     'g', '-',  '^'),
     ("FM-ISQMC",    'k', '-',  'D'),
-    ("Estimator 1", 'm', '-',  'P'),
-    ("Estimator 2", '#d97a00', '-', 'v'),   # dark orange
+    ("Direct-MCbk-RQMC", 'm', '-',  'P'),
+    ("Direct-Joint-RQMC", '#d97a00', '-', 'v'),   # dark orange
 ]
 
 
@@ -73,8 +73,8 @@ def load_cache():
                 "FM-QMC":      (N_main, src_main[f"rmse_QMC_{key}"]),
                 "FM-ISMC":     (N_main, src_main[f"rmse_ISMC_{key}"]),
                 "FM-ISQMC":    (N_main, src_main[f"rmse_ISQMC_{key}"]),
-                "Estimator 1": (N_main, src_main[f"rmse_direct_mc_{key}"]),
-                "Estimator 2": (N_m1,   src_m1[f"rmse_M1_Joint_d+1_{key}"]),
+                "Direct-MCbk-RQMC": (N_main, src_main[f"rmse_direct_mc_{key}"]),
+                "Direct-Joint-RQMC": (N_m1,   src_m1[f"rmse_M1_Joint_d+1_{key}"]),
             }
             cache[(setting, key)] = series
     return cache
@@ -126,7 +126,7 @@ def plot_one(series, save_path):
     ax.grid(True, which='both', linestyle='--', alpha=0.4)
 
     # legend in the order we constructed plots: FM-MC, FM-QMC, FM-ISMC,
-    # FM-ISQMC, Estimator 1, Estimator 2, then the three reference dashes.
+    # FM-ISQMC, Direct-MCbk-RQMC, Direct-Joint-RQMC, then the three reference dashes.
     ax.legend(loc='lower left', fontsize=10, framealpha=0.95)
 
     plt.tight_layout()
@@ -139,7 +139,7 @@ def print_slope_table(cache):
     print("\n=== slope summary ===")
     for (setting, key), series in sorted(cache.items()):
         print(f"-- {setting} {key} --")
-        for name in ["FM-MC", "FM-QMC", "FM-ISMC", "FM-ISQMC", "Estimator 1", "Estimator 2"]:
+        for name in ["FM-MC", "FM-QMC", "FM-ISMC", "FM-ISQMC", "Direct-MCbk-RQMC", "Direct-Joint-RQMC"]:
             N, err = series[name]
             print(f"  {name:14s}: slope = {_slope(N, err):.3f}")
 

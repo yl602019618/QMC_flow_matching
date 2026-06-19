@@ -10,8 +10,9 @@ Six curves per figure:
   FM-QMC     : flow proposal, scrambled-Sobol' base, plain mean
   FM-ISMC    : flow proposal + SNIS (i.i.d. base)
   FM-ISQMC   : flow proposal + SNIS (scrambled-Sobol' base)
-  Estimator 1: MC bucket + RQMC Gaussian (no flow)
-  Estimator 2: M1, joint (d+1)-dim RQMC  (no flow)
+  Direct-MCbk-RQMC: MC bucket + RQMC Gaussian (no flow)
+  Direct-Joint-RQMC: M1, joint (d+1)-dim RQMC  (no flow)
+  Direct-MC: MC bucket + MC Gaussian (pure MC baseline, no flow)
 
 FM methods use N = 2..16384 (p=1..14); the direct estimators use N = 4..16384
 (p=2..14). 10 independent repetitions per N. RMSE is computed against the
@@ -29,7 +30,7 @@ from tqdm import tqdm
 
 from model import FlowMatchingOT, set_seed
 from gmm import INTEGRANDS, log_prob_torch
-from estimators import sample_estimator1, sample_estimator2
+from estimators import sample_estimator1, sample_estimator2, sample_estimator3
 
 NUM_EXP = 10
 SAMPLING_STEPS = 64
@@ -40,7 +41,8 @@ LOGPROB_BS = 256
 SERIES_STYLE = [
     ("FM-MC", 'r', '-', 'o'), ("FM-QMC", 'b', '-', 's'),
     ("FM-ISMC", 'g', '-', '^'), ("FM-ISQMC", 'k', '-', 'D'),
-    ("Estimator 1", 'm', '-', 'P'), ("Estimator 2", '#d97a00', '-', 'v'),
+    ("Direct-MCbk-RQMC", 'm', '-', 'P'), ("Direct-Joint-RQMC", '#d97a00', '-', 'v'),
+    ("Direct-MC", 'c', '-', '*'),
 ]
 
 
@@ -80,7 +82,7 @@ def run(ckpt):
     keys = list(INTEGRANDS.keys())
     tvs = {k: INTEGRANDS[k]["true"]() for k in keys}
     fm_methods = ["FM-MC", "FM-QMC", "FM-ISMC", "FM-ISQMC"]
-    rq_methods = ["Estimator 1", "Estimator 2"]
+    rq_methods = ["Direct-MCbk-RQMC", "Direct-Joint-RQMC", "Direct-MC"]
     series = {k: {m: {"N": [], "rmse": []} for m in fm_methods + rq_methods} for k in keys}
 
     # ---- flow-based methods: N = 2..16384 ----
@@ -110,13 +112,15 @@ def run(ckpt):
     # ---- direct estimators: N = 4..16384 ----
     for p in tqdm(range(2, 15), desc="RQMC"):
         N = 2 ** p
-        acc = {k: {"Estimator 1": [], "Estimator 2": []} for k in keys}
+        acc = {k: {"Direct-MCbk-RQMC": [], "Direct-Joint-RQMC": [], "Direct-MC": []} for k in keys}
         for r in range(NUM_EXP):
             x1 = sample_estimator1(N, r)
             x2 = sample_estimator2(N, r)
+            x3 = sample_estimator3(N, r)
             for k in keys:
-                acc[k]["Estimator 1"].append(_agg(x1, k))
-                acc[k]["Estimator 2"].append(_agg(x2, k))
+                acc[k]["Direct-MCbk-RQMC"].append(_agg(x1, k))
+                acc[k]["Direct-Joint-RQMC"].append(_agg(x2, k))
+                acc[k]["Direct-MC"].append(_agg(x3, k))
         for k in keys:
             vec = INTEGRANDS[k]["is_vector"]
             for m in rq_methods:

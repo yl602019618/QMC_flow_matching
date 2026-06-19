@@ -7,9 +7,9 @@
 gmm30d_final/
 ├── model.py        # Flow-Matching (OT) 网络 + 训练步 + MC/QMC 采样 + 反向 log-prob
 ├── gmm.py          # 目标分布、数据集、解析 log 密度、两个被积函数及其闭式真值
-├── estimators.py   # 两个直接 RQMC 估计量 (Estimator 1, Estimator 2 = M1)
+├── estimators.py   # 三个直接估计量 (Direct-MCbk-RQMC, Direct-Joint-RQMC, Direct-MC)
 ├── train.py        # 训练 flow 提议分布 q_theta
-├── evaluate.py     # 跑全部 6 种方法,产出 results/final_{complex,second}.pdf
+├── evaluate.py     # 跑全部 7 种方法,产出 results/final_{complex,second}.pdf
 └── results/
     ├── fm_model.pt          # 已训练 ckpt (800k 步)
     ├── final_complex.pdf    # complex f 的 RMSE-vs-N
@@ -75,9 +75,9 @@ $$
 
 ---
 
-## 3. 两个直接 RQMC 估计量的数学定义
+## 3. 三个直接估计量的数学定义
 
-两者都**不使用流、不使用重要性权重**,直接从 π 采样,估计量为简单样本均值
+三者都**不使用流、不使用重要性权重**,直接从 π 采样,估计量为简单样本均值
 
 $$
 \hat I_N=\frac1N\sum_{i=1}^N f(x_i),\qquad x_i=\mu_{k_i}+\sqrt{\sigma^2}\,z_i .
@@ -85,7 +85,7 @@ $$
 
 区别仅在于离散桶 $k_i$ 与高斯 $z_i$ 的生成方式。
 
-### Estimator 1 — MC 抽桶 + RQMC 高斯
+### Direct-MCbk-RQMC — MC 抽桶 + RQMC 高斯
 
 $$
 k_i\overset{\text{iid}}{\sim}\mathrm{Uniform}\{1,\dots,K\},\qquad
@@ -95,7 +95,7 @@ $$
 桶分配是普通蒙特卡洛,只有连续高斯部分用 RQMC。离散 MC 噪声主导
 $\Rightarrow$ 收敛阶约 $O(N^{-1/2})$。
 
-### Estimator 2 — M1(联合 $(d{+}1)$ 维 RQMC)
+### Direct-Joint-RQMC — M1(联合 $(d{+}1)$ 维 RQMC)
 
 取**一份** $(d{+}1)$ 维 scrambled Sobol' 点列 $\{u_i\}_{i=1}^N\subset(0,1)^{d+1}$,
 
@@ -111,6 +111,16 @@ $\phi(u)=\mu_{\lfloor Ku_0\rfloor+1}+\sqrt{\sigma^2}\,\Phi^{-1}(u_{1:d})$,
 $N=2^p$ 时把点严格 $N/K$ 分到各分量;其余 $d$ 维生成高斯。
 **单一全局低差异点列**同时驱动桶与高斯,联合 cube 被低差异填充
 $\Rightarrow$ 对光滑被积逼近 $O(N^{-1})$。
+
+### Direct-MC — 纯 MC baseline
+
+$$
+k_i\overset{\text{iid}}{\sim}\mathrm{Uniform}\{1,\dots,K\},\qquad
+z_i\overset{\text{iid}}{\sim}\mathcal N(0, I_d).
+$$
+
+桶和高斯都使用普通蒙特卡洛采样，是直接从 $\pi$ 采样的最朴素 baseline，
+收敛阶为 $O(N^{-1/2})$。
 
 > 对比:论文里 FM-ISQMC 用学到的 flow $q_\theta$ 作提议 + scrambled-Sobol' 基点 +
 > 自归一化重要性采样 (SNIS) $w_i\propto\pi(x_i)/q_\theta(x_i)$;FM-MC/QMC/ISMC 是其
@@ -137,8 +147,9 @@ $x_t=(1-t)x_0+tz$。RTX 4090 上 ~80 steps/s(~2.8h)。
 python evaluate.py --ckpt results/fm_model.pt
 ```
 
-产出 `results/final_complex.pdf`、`results/final_second.pdf`(各 6 条曲线 +
-参考斜率 -0.5 / -1 / FM-ISQMC 拟合),以及对应数据缓存 npz。
+产出 `results/final_complex.pdf`、`results/final_second.pdf`(各 7 条曲线：
+4 种 FM 方法 + Direct-MCbk-RQMC + Direct-Joint-RQMC + Direct-MC，
+以及参考斜率 -0.5 / -1 / FM-ISQMC 拟合),以及对应数据缓存 npz。
 $N$:FM 方法 $2\to16384$,直接估计量 $4\to16384$,每个 $N$ 重复 10 次。
 
 ---
@@ -147,13 +158,14 @@ $N$:FM 方法 $2\to16384$,直接估计量 $4\to16384$,每个 $N$ 重复 10 次�
 
 RMSE-vs-N 的 log-log 斜率:
 
-| 被积 | FM-MC | FM-QMC | FM-ISMC | FM-ISQMC | Estimator 1 | **Estimator 2 (M1)** |
-| --- | --- | --- | --- | --- | --- | --- |
-| complex f | -0.36 | -0.26 | -0.51 | -0.55 | -0.54 | **-0.57** |
-| 二阶矩 | -0.49 | -0.57 | -0.51 | -0.77 | -0.59 | **-0.99** |
+| 被积 | FM-MC | FM-QMC | FM-ISMC | FM-ISQMC | Direct-MCbk-RQMC | Direct-Joint-RQMC (M1) | Direct-MC |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| complex f | -0.36 | -0.26 | -0.51 | -0.55 | -0.54 | **-0.57** | -0.50 |
+| 二阶矩 | -0.49 | -0.57 | -0.51 | -0.77 | -0.59 | **-0.99** | -0.50 |
 
-- **二阶矩**(光滑无界):Estimator 2 (M1) ≈ $-1$,比所有方法低一个数量级。
+- **Direct-MC** 作为纯 MC baseline，两条曲线斜率均约为 **-0.50**，验证了 MC 的 $O(N^{-1/2})$ 收敛。
+- **二阶矩**(光滑无界):Direct-Joint-RQMC (M1) ≈ $-1$,比 Direct-MC 与 FM 方法低一个数量级。
 - **complex f**(有界饱和,大方差推向准间断):M1 退化到 $\approx-0.57$,
-  与 FM-ISQMC 打平。
+  与 FM-ISQMC 打平，但仍优于 Direct-MC 的 -0.50。
 
 详见 `results/final_{complex,second}.pdf`。
